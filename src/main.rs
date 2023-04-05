@@ -38,10 +38,10 @@ struct Cli {
 // + output gzip (command option),  --      --      --      --      --      --      --      --      --  DONE
 // + replace is option      --      --      --      --      --      --      --      --      --      --  DONE
 // input from STDIN ? NOPE
-// precise > header stuff in readme
-// allow 2 regex even with no-replace
+// precise > header stuff in readme --      --      --      --      --      --      --      --      --  DONE
+// allow 2 regex even with no-replace       --      --      --      --      --      --      --      --  DONE
 // add --explain thing
-// count comment and empty lines in regex file
+// count comment and empty lines in regex file      --      --      --      --      --      --      --  DONE
 // ignore records that don't match regex, no written to output, add to stats, option
 // count records with empty sequence to stats
 // option to ignore empty sequence
@@ -50,7 +50,7 @@ la version du software, les paranetres et leur values  */
 // stats for sequences per taxons for duplicate only
 // pretty print json
 // option to only consider the first sequence for each taxon
-// git the damn thing
+// git the damn thing       --      --      --      --      --      --      --      --      --      --  DONE
 
 
 fn main() {
@@ -124,9 +124,9 @@ fn main() {
                 None => {}
             }
         }*/
-        /*if total_count == 100 {
+        if total_count == 100 {
             break;
-        }*/
+        }
 
         // ensure the header we use contains all the header of the entry, as rust-bio splits the header into id and desc
         let header = match record.desc() {
@@ -207,22 +207,17 @@ fn parse_regex_file(path: PathBuf, selected_line: usize, avoid_replace:bool) -> 
     let data = fs::read_to_string(path.clone())
         .expect(format!("Error while opening regex file {:?}", path).as_str());
     let mut result: (Regex, Option<String>) = (Regex::new("").unwrap(), None);
-    let mut regex_count = 1;
+    let mut line_count = 1;
     let expected_entries_per_line = if avoid_replace {1} else {2};
     let mut line_was_found_and_ok = false; // did the parsing go well
 
-    // sannity check
+    // sanity check
     if selected_line < 1 { panic!("-l/--regex-line argument should start at 1")}
 
     for line in data.split("\n").into_iter() {
-        // comment or empty, skip
-        if line.starts_with("#") || line.is_empty() {
-            continue;
-        }
-
-        // a line with some data, but not the one selected, skip
-        if regex_count != selected_line {
-            regex_count += 1;
+        // comment or empty, or a line with some data, but not the one selected, skip
+        if line.starts_with("#") || line.is_empty() || line_count != selected_line {
+            line_count += 1;
             continue;
         }
         // at this point we are at the desired line
@@ -235,7 +230,7 @@ fn parse_regex_file(path: PathBuf, selected_line: usize, avoid_replace:bool) -> 
 Expected {} entries, found {}.
 Ensure that the 2 entries are separated by an actual tab character, not spaces.", line, expected_entries_per_line, regs.len());
         }
-        else if regs.len() > expected_entries_per_line {
+        else if regs.len() > 2 {
             panic!("Could not parse correctly the following line from the regex file:
 \n{}\n
 Expected {} entries, found {}.
@@ -269,6 +264,6 @@ If you need to use tabs in a regex, use '\\t'.", line, expected_entries_per_line
         return  result;
     }
     else {
-        panic!("Nothing parsed, regex file seems to be empty, or -l/--regex-line argument is invalid");
+        panic!("Nothing parsed, regex file seems to be empty, or -l/--regex-line argument is invalid or points to a comment or empty line");
     }
 }

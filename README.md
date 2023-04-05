@@ -27,15 +27,17 @@ Regex 2 is the format of the new header. It uses capture groups specified in reg
 Sample line:
 (.+)###(?P<taxo>.+)	${1} ${2}
 
+You do not need to worry about the > starting character of the header line, as it is automatically discarded on parsing and re-added on writing. It is not considered to be part of the header string for our purpose.
+
 #### Select a line
 
-To chose a regex from the file, use the `-l, --select-regex` argument, starting with 1.
+To chose a regex from the file, use the `-l, --select-regex` argument with the line number, starting with 1.
 You can use comment lines in this file, the line must start with #. Empty lines are allowed.
-Beware that if you use comments or empty lines, the `--select-regex` doesn't represent the line number of your chosen regex anymore. Use `--select-regex n` to choose the nth regex line listed in the file.
 
 #### No replace
 
-If no replace is necessary, use the `-n/--no-replace` flag. The selected line then needs to have only one regex.
+If no replace is necessary, use the `-n/--no-replace` flag.
+In this case, the 2nd regex is not used and can be omitted from the regex file. If a 2nd regex is present, it is simply ignored.
 
 ### Misc
 
