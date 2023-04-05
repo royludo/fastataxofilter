@@ -1,0 +1,6 @@
+/target
+*.lock
+*.fasta
+*.fasta.gz
+stats.json
+regex.tsv

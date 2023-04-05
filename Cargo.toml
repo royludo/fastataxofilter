@@ -1,0 +1,13 @@
+[package]
+name = "fastataxofilter"
+version = "0.4.0"
+edition = "2021"
+authors = ["Ludovic Roy <royludo4@gmail.com>"]
+description = "Remove FASTA records that are duplicated within the same taxon and replace headers"
+readme = "README.md"
+
+[dependencies]
+clap = {version = "4.1.13", features = ["derive"] }
+bio = "1.1.0"
+regex = "1.7.3"
+flate2 = "1.0.25"
