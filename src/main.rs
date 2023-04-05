@@ -7,6 +7,7 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::sync::mpsc::channel;
 use clap::Parser;
 use std::io;
+use serde_json::json;
 
 
 #[derive(Parser)]
@@ -43,7 +44,7 @@ struct Cli {
 // input from STDIN ? NOPE
 // precise > header stuff in readme --      --      --      --      --      --      --      --      --  DONE
 // allow 2 regex even with no-replace       --      --      --      --      --      --      --      --  DONE
-// add --explain thing
+// add --explain thing      --      --      --      --      --      --      --      --      --      --  DONE
 // count comment and empty lines in regex file      --      --      --      --      --      --      --  DONE
 // ignore records that don't match regex, no written to output, add to stats, option
 // count records with empty sequence to stats
@@ -51,7 +52,7 @@ struct Cli {
 /* ah en fait dans les stats tu peux meme mettre le path du fichier input, le path du ficher output, 
 la version du software, les paranetres et leur values  */
 // stats for sequences per taxons for duplicate only
-// pretty print json
+// pretty print json        --      --      --      --      --      --      --      --      --      --  DONE
 // option to only consider the first sequence for each taxon
 // git the damn thing       --      --      --      --      --      --      --      --      --      --  DONE
 
@@ -205,9 +206,14 @@ fn main() {
     // write the json report if user chose it
     if let Some(path) = args.stats_path {
         let duration = start.elapsed();
-        let stats_content_json = format!("{{\"Duplicated entries\": {}, \"Total entries\": {}, \"Time\": \"{:?}\"}}\n", 
-            identical_count, total_count, duration);
-        fs::write(path, stats_content_json).expect(format!("Error while writing stats file").as_str());
+        let stats_content_json = json!({
+            "Duplicated entries": identical_count,
+            "Total entries": total_count,
+            "Time": format!("{:?}", duration)
+        });
+        fs::write(path, serde_json::to_string_pretty(&stats_content_json)
+            .expect("Error while prettyfying json"))
+            .expect(format!("Error while writing stats file").as_str());
     }
 
 }
@@ -297,9 +303,10 @@ fn print_explain(capture_result: Captures, original_header: &String, new_header:
         //eprintln!("{} {} {}", i, (i * width), ((i + 1) * width));
         let line_start_char_pos = i * width;
         let line_end_char_pos = (i + 1) * width;
-        eprintln!("{}", &original_header[line_start_char_pos..std::cmp::min(original_header.len(), line_end_char_pos)]);
+        eprintln!("{: >3}-{: >3}|{}",line_start_char_pos, std::cmp::min(original_header.len(), line_end_char_pos),
+            &original_header[line_start_char_pos..std::cmp::min(original_header.len(), line_end_char_pos)]);
         if line_start_char_pos < highlight_line.len() {
-            eprintln!("{}", &highlight_line[line_start_char_pos..std::cmp::min(highlight_line.len(), line_end_char_pos)]);
+            eprintln!("        {}", &highlight_line[line_start_char_pos..std::cmp::min(highlight_line.len(), line_end_char_pos)]);
         }
         // highlight line is not filled to match the length of the header,
         // so it is always shorter. Here nothing remains in highlight line.
