@@ -31,9 +31,15 @@ struct Cli {
     /// Flag to avoid doing header string replace
     #[arg(short = 'n', long = "no-replace")]
     avoid_replace: bool,
-    /// Only process the 1st record and outputs explanation on STDERR
+    /// Flag to only process the 1st record and outputs explanation on STDERR
     #[arg(short = 'e', long = "explain")]
-    explain: bool
+    explain: bool,
+    /// Flag to ignore and discard records that do not match the given regex
+    #[arg(short = 'y', long = "ignore-no-match")]
+    ignore_no_match: bool,
+    /// Flag to ignore and discard records with empty sequence
+    #[arg(short = 'x', long = "ignore-empty")]
+    ignore_empty: bool
 }
 
 
@@ -46,9 +52,9 @@ struct Cli {
 // allow 2 regex even with no-replace       --      --      --      --      --      --      --      --  DONE
 // add --explain thing      --      --      --      --      --      --      --      --      --      --  DONE
 // count comment and empty lines in regex file      --      --      --      --      --      --      --  DONE
-// ignore records that don't match regex, no written to output, add to stats, option
-// count records with empty sequence to stats
-// option to ignore empty sequence
+// ignore records that don't match regex, no written to output, add to stats, option        --      --  DONE
+// count records with empty sequence to stats       --      --      --      --      --      --      --  DONE
+// option to ignore empty sequence                  --      --      --      --      --      --      --  DONE
 /* ah en fait dans les stats tu peux meme mettre le path du fichier input, le path du ficher output, 
 la version du software, les paranetres et leur values  */
 // stats for sequences per taxons for duplicate only
@@ -105,6 +111,8 @@ fn main() {
     //let mut record = fasta::Record::new();
     let mut total_count = 0;
     let mut identical_count = 0;
+    let mut empty_seq_count = 0;
+    let mut unmatched_record_count = 0;
     let start = Instant::now();
     /*let mut sum_duration2 = Duration::default();
     let mut sum_duration3 = Duration::default();
@@ -139,14 +147,30 @@ fn main() {
         };
         let sequence = record.seq().to_vec();
 
+        if sequence.is_empty() {
+            empty_seq_count += 1;
+            if args.ignore_empty {
+                total_count += 1;
+                continue;
+            }
+        }
+
         //let part_duration2 = loop_start.elapsed();
         //sum_duration2 += part_duration2;
 
 
         // capture taxonomy to use as key
         let (re_match, re_replace) = &selected_regex_line;
-        let capture_result = re_match.captures(&header)
-            .expect(format!("Could not match given regexp: {}\nProblematic header:\n\n{}\n\n", re_match.as_str(), &header).as_str());
+        let Some(capture_result) = re_match.captures(&header) else {
+            unmatched_record_count += 1;
+            if args.ignore_no_match {
+                total_count += 1;
+                continue;
+            }
+            else {
+                panic!("Could not match given regexp: {}\nProblematic header:\n\n{}\n\n", re_match.as_str(), &header);
+            }
+        };
         let taxo_key = capture_result.name("taxo")
             .expect(format!("Could not match taxonomy from given regexp: {}\nNeed a capture group named 'taxo'. Problematic header:\n\n{}\n\n", 
                 re_match.as_str(), &header).as_str()).as_str().to_string();
@@ -208,6 +232,8 @@ fn main() {
         let duration = start.elapsed();
         let stats_content_json = json!({
             "Duplicated entries": identical_count,
+            "Empty sequence": empty_seq_count,
+            "Unmatched sequence": unmatched_record_count,
             "Total entries": total_count,
             "Time": format!("{:?}", duration)
         });
@@ -303,10 +329,10 @@ fn print_explain(capture_result: Captures, original_header: &String, new_header:
         //eprintln!("{} {} {}", i, (i * width), ((i + 1) * width));
         let line_start_char_pos = i * width;
         let line_end_char_pos = (i + 1) * width;
-        eprintln!("{: >3}-{: >3}|{}",line_start_char_pos, std::cmp::min(original_header.len(), line_end_char_pos),
+        eprintln!("{: >4}-{: >4}|{}",line_start_char_pos, std::cmp::min(original_header.len(), line_end_char_pos),
             &original_header[line_start_char_pos..std::cmp::min(original_header.len(), line_end_char_pos)]);
         if line_start_char_pos < highlight_line.len() {
-            eprintln!("        {}", &highlight_line[line_start_char_pos..std::cmp::min(highlight_line.len(), line_end_char_pos)]);
+            eprintln!("          {}", &highlight_line[line_start_char_pos..std::cmp::min(highlight_line.len(), line_end_char_pos)]);
         }
         // highlight line is not filled to match the length of the header,
         // so it is always shorter. Here nothing remains in highlight line.
