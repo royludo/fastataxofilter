@@ -1,6 +1,6 @@
 use bio::io::{fasta::{Reader as FastaReader, Record, Writer as FastaWriter}};
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
-use regex::Regex;
+use regex::{Regex, Captures};
 use std::{path::PathBuf, fs::{self, File}, collections::HashSet, borrow::Cow};
 use std::time::{Duration, Instant};
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -29,7 +29,10 @@ struct Cli {
     is_gzip_output: bool,
     /// Flag to avoid doing header string replace
     #[arg(short = 'n', long = "no-replace")]
-    avoid_replace: bool
+    avoid_replace: bool,
+    /// Only process the 1st record and outputs explanation on STDERR
+    #[arg(short = 'e', long = "explain")]
+    explain: bool
 }
 
 
@@ -153,7 +156,7 @@ fn main() {
 
         // replace header according to provided regex
         let new_header = if args.avoid_replace {
-            Cow::from(header)
+            Cow::from(&header)
         }
         else {
             re_match.replace(&header, re_replace.as_ref().expect("No replace string found"))
@@ -163,6 +166,12 @@ fn main() {
         //sum_duration4 += part_duration4;
 
         let aggreg_key = [taxo_key, String::from_utf8_lossy(&sequence).to_string()].join("");
+
+        // exit after 1st record
+        if args.explain {
+            print_explain(capture_result, &header, &new_header.to_string());
+            break;
+        }
 
         // check for identical sequences
         if !aggreg_hashset.contains(&aggreg_key) {
@@ -202,6 +211,7 @@ fn main() {
     }
 
 }
+
 
 fn parse_regex_file(path: PathBuf, selected_line: usize, avoid_replace:bool) -> (Regex, Option<String>) {
     let data = fs::read_to_string(path.clone())
@@ -266,4 +276,50 @@ If you need to use tabs in a regex, use '\\t'.", line, expected_entries_per_line
     else {
         panic!("Nothing parsed, regex file seems to be empty, or -l/--regex-line argument is invalid or points to a comment or empty line");
     }
+}
+
+/// print explanations of the regex on stderr, with nice formatting
+fn print_explain(capture_result: Captures, original_header: &String, new_header: &String) {
+    let taxo_start = capture_result.name("taxo")
+        .expect("Could not retrieve taxo start for explanation").start();
+    let taxo_end = capture_result.name("taxo")
+        .expect("Could not retrieve taxo end for explanation").end();
+    let highlight = "^".repeat(taxo_end - taxo_start);
+    let start_spacing = " ".repeat(taxo_start);
+    let highlight_line = [start_spacing, highlight].join("");
+
+    
+    eprintln!("Original header and taxo capture group (chars {} to {}):", 
+        taxo_start, taxo_end);
+    // format things on 80 chars wide lines
+    let width = 80;
+    for i in 0..(original_header.len() / width + 1) {
+        //eprintln!("{} {} {}", i, (i * width), ((i + 1) * width));
+        let line_start_char_pos = i * width;
+        let line_end_char_pos = (i + 1) * width;
+        eprintln!("{}", &original_header[line_start_char_pos..std::cmp::min(original_header.len(), line_end_char_pos)]);
+        if line_start_char_pos < highlight_line.len() {
+            eprintln!("{}", &highlight_line[line_start_char_pos..std::cmp::min(highlight_line.len(), line_end_char_pos)]);
+        }
+        // highlight line is not filled to match the length of the header,
+        // so it is always shorter. Here nothing remains in highlight line.
+        else {
+            eprintln!("");
+        }
+    }
+    
+    eprintln!("\nList of captured groups, enclosed with \":");
+    let mut cap_count = 0;
+    for cap_group in capture_result.iter() {
+        if cap_count == 0 { // ignore 1st group as it is entire match
+            cap_count += 1;
+            continue;
+        }
+        if let Some(m) = cap_group {
+            eprintln!("|{}: \"{}\"", cap_count, m.as_str());
+            cap_count += 1;
+        }
+    }
+
+    eprintln!("\nNew header:\n{}", &new_header);
 }
