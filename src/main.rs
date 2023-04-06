@@ -39,7 +39,10 @@ struct Cli {
     ignore_no_match: bool,
     /// Flag to ignore and discard records with empty sequence
     #[arg(short = 'x', long = "ignore-empty")]
-    ignore_empty: bool
+    ignore_empty: bool,
+    /// Flag to only use the first sequence for each taxon
+    #[arg(short = 'f', long = "first-seq-only")]
+    first_seq_only: bool
 }
 
 
@@ -59,8 +62,9 @@ struct Cli {
 // la version du software, les paranetres et leur values            --      --      --      --      --  DONE
 // stats for sequences per taxons for duplicate only        --      --      --      --      --      --  DONE
 // pretty print json        --      --      --      --      --      --      --      --      --      --  DONE
-// option to only consider the first sequence for each taxon
+// option to only consider the first sequence for each taxon        --      --      --      --      --  DONE
 // git the damn thing       --      --      --      --      --      --      --      --      --      --  DONE
+// update readme
 
 
 fn main() {
@@ -110,12 +114,14 @@ fn main() {
 
     // collect duplicate stats for each taxons
     let mut duplicate_seq_map: HashMap<String, u32> = HashMap::new();
+    let mut global_taxo_set: HashSet<String> = HashSet::new();
 
     //let mut record = fasta::Record::new();
     let mut total_count = 0;
     let mut identical_count = 0;
     let mut empty_seq_count = 0;
     let mut unmatched_record_count = 0;
+    let mut output_entries_count = 0;
     let start = Instant::now();
     /*let mut sum_duration2 = Duration::default();
     let mut sum_duration3 = Duration::default();
@@ -139,9 +145,9 @@ fn main() {
                 None => {}
             }
         }*/
-        if total_count == 500_000 {
+        /*if total_count == 500_000 {
             break;
-        }
+        }*/
 
         // ensure the header we use contains all the header of the entry, as rust-bio splits the header into id and desc
         let header = match record.desc() {
@@ -177,6 +183,16 @@ fn main() {
         let taxo_key = capture_result.name("taxo")
             .expect(format!("Could not match taxonomy from given regexp: {}\nNeed a capture group named 'taxo'. Problematic header:\n\n{}\n\n", 
                 re_match.as_str(), &header).as_str()).as_str().to_string();
+        if args.first_seq_only {
+            if global_taxo_set.contains(&taxo_key) {
+                total_count += 1;
+                continue;
+            }
+            else {
+                global_taxo_set.insert(taxo_key.clone());
+            }   
+        }
+        
 
 
         //let part_duration3 = loop_start.elapsed();
@@ -209,6 +225,7 @@ fn main() {
              //   .expect(format!("Error while writing record with id: {}", new_header).as_str());
             tx.send(new_record)
                 .expect(format!("Error while sending fasta record to writer thread with header: {}", new_header).as_str());
+            output_entries_count += 1;
         
         }
         else { // identical seq FOUND
@@ -245,6 +262,7 @@ fn main() {
             "Duplicated entries": identical_count,
             "Empty sequence": empty_seq_count,
             "Unmatched sequence": unmatched_record_count,
+            "Output entries": output_entries_count,
             "Total entries": total_count,
             "Time": format!("{:?}", duration),
             "Script": {
@@ -259,7 +277,8 @@ fn main() {
                     "--no-replace": args.avoid_replace,
                     "--explain": args.explain,
                     "--ignore-no-match": args.ignore_no_match,
-                    "--ignore-empty": args.ignore_empty
+                    "--ignore-empty": args.ignore_empty,
+                    "--first-seq-only": args.first_seq_only
                 }
             },
             "Taxons with at least 1 duplicate": duplicate_seq_map.len(),
