@@ -1,7 +1,7 @@
 use bio::io::{fasta::{Reader as FastaReader, Record, Writer as FastaWriter}};
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use regex::{Regex, Captures};
-use std::{path::PathBuf, fs::{self, File}, collections::HashSet, borrow::Cow};
+use std::{path::PathBuf, fs::{self, File}, collections::{HashSet}, borrow::Cow};
 use std::time::{Duration, Instant};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::sync::mpsc::channel;
@@ -55,8 +55,8 @@ struct Cli {
 // ignore records that don't match regex, no written to output, add to stats, option        --      --  DONE
 // count records with empty sequence to stats       --      --      --      --      --      --      --  DONE
 // option to ignore empty sequence                  --      --      --      --      --      --      --  DONE
-/* ah en fait dans les stats tu peux meme mettre le path du fichier input, le path du ficher output, 
-la version du software, les paranetres et leur values  */
+// ah en fait dans les stats tu peux meme mettre le path du fichier input, le path du ficher output,
+// la version du software, les paranetres et leur values            --      --      --      --      -- ~DONE
 // stats for sequences per taxons for duplicate only
 // pretty print json        --      --      --      --      --      --      --      --      --      --  DONE
 // option to only consider the first sequence for each taxon
@@ -67,7 +67,7 @@ fn main() {
     let args = Cli::parse();
 
     let selected_regex_line = parse_regex_file(
-        args.regex_path, 
+        &args.regex_path, 
         args.regex_line, 
         args.avoid_replace);
 
@@ -228,14 +228,30 @@ fn main() {
     }
 
     // write the json report if user chose it
-    if let Some(path) = args.stats_path {
+    if let Some(path) = &args.stats_path {
+        // impossible to get output redirection
+        let full_cmd: Vec<String> = std::env::args().collect();
+        let full_cmd_string = full_cmd.join(" ");
         let duration = start.elapsed();
         let stats_content_json = json!({
             "Duplicated entries": identical_count,
             "Empty sequence": empty_seq_count,
             "Unmatched sequence": unmatched_record_count,
             "Total entries": total_count,
-            "Time": format!("{:?}", duration)
+            "Time": format!("{:?}", duration),
+            "Script": {
+                "Version": env!("CARGO_PKG_VERSION"),
+                "Full cmd": full_cmd_string,
+                "--input": args.input_path,
+                "--regex-file": args.regex_path,
+                "--select-regex": args.regex_line,
+                "--stats-file": args.stats_path,
+                "--gzip-output": args.is_gzip_output,
+                "--no-replace": args.avoid_replace,
+                "--explain": args.explain,
+                "--ignore-no-match": args.ignore_no_match,
+                "--ignote-empty": args.ignore_empty
+            }
         });
         fs::write(path, serde_json::to_string_pretty(&stats_content_json)
             .expect("Error while prettyfying json"))
@@ -245,7 +261,7 @@ fn main() {
 }
 
 
-fn parse_regex_file(path: PathBuf, selected_line: usize, avoid_replace:bool) -> (Regex, Option<String>) {
+fn parse_regex_file(path: &PathBuf, selected_line: usize, avoid_replace:bool) -> (Regex, Option<String>) {
     let data = fs::read_to_string(path.clone())
         .expect(format!("Error while opening regex file {:?}", path).as_str());
     let mut result: (Regex, Option<String>) = (Regex::new("").unwrap(), None);
