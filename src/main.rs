@@ -1,7 +1,7 @@
 use bio::io::{fasta::{Reader as FastaReader, Record, Writer as FastaWriter}};
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use regex::{Regex, Captures};
-use std::{path::PathBuf, fs::{self, File}, collections::{HashSet}, borrow::Cow};
+use std::{path::PathBuf, fs::{self, File}, collections::{HashSet, HashMap}, borrow::Cow};
 use std::time::{Duration, Instant};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::sync::mpsc::channel;
@@ -56,8 +56,8 @@ struct Cli {
 // count records with empty sequence to stats       --      --      --      --      --      --      --  DONE
 // option to ignore empty sequence                  --      --      --      --      --      --      --  DONE
 // ah en fait dans les stats tu peux meme mettre le path du fichier input, le path du ficher output,
-// la version du software, les paranetres et leur values            --      --      --      --      -- ~DONE
-// stats for sequences per taxons for duplicate only
+// la version du software, les paranetres et leur values            --      --      --      --      --  DONE
+// stats for sequences per taxons for duplicate only        --      --      --      --      --      --  DONE
 // pretty print json        --      --      --      --      --      --      --      --      --      --  DONE
 // option to only consider the first sequence for each taxon
 // git the damn thing       --      --      --      --      --      --      --      --      --      --  DONE
@@ -108,6 +108,9 @@ fn main() {
         fastawriter.flush().expect("Error while flushing fasta writer at the end");
     });
 
+    // collect duplicate stats for each taxons
+    let mut duplicate_seq_map: HashMap<String, u32> = HashMap::new();
+
     //let mut record = fasta::Record::new();
     let mut total_count = 0;
     let mut identical_count = 0;
@@ -136,7 +139,7 @@ fn main() {
                 None => {}
             }
         }*/
-        if total_count == 100 {
+        if total_count == 500_000 {
             break;
         }
 
@@ -190,7 +193,7 @@ fn main() {
         //let part_duration4 = loop_start.elapsed();
         //sum_duration4 += part_duration4;
 
-        let aggreg_key = [taxo_key, String::from_utf8_lossy(&sequence).to_string()].join("");
+        let aggreg_key = [taxo_key.clone(), String::from_utf8_lossy(&sequence).to_string()].join("");
 
         // exit after 1st record
         if args.explain {
@@ -210,6 +213,11 @@ fn main() {
         }
         else { // identical seq FOUND
             identical_count += 1;
+
+            // update duplicate seq map
+            duplicate_seq_map.entry(taxo_key)
+                .and_modify(|e| { *e += 1 })
+                .or_insert(1);
         }    
 
         //let part_duration5 = loop_start.elapsed();
@@ -250,8 +258,10 @@ fn main() {
                 "--no-replace": args.avoid_replace,
                 "--explain": args.explain,
                 "--ignore-no-match": args.ignore_no_match,
-                "--ignote-empty": args.ignore_empty
-            }
+                "--ignore-empty": args.ignore_empty
+            },
+            "Taxons with at least 1 duplicate": duplicate_seq_map.len(),
+            "Duplicate counts per taxon": duplicate_seq_map
         });
         fs::write(path, serde_json::to_string_pretty(&stats_content_json)
             .expect("Error while prettyfying json"))
