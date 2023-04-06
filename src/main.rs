@@ -250,15 +250,17 @@ fn main() {
             "Script": {
                 "Version": env!("CARGO_PKG_VERSION"),
                 "Full cmd": full_cmd_string,
-                "--input": args.input_path,
-                "--regex-file": args.regex_path,
-                "--select-regex": args.regex_line,
-                "--stats-file": args.stats_path,
-                "--gzip-output": args.is_gzip_output,
-                "--no-replace": args.avoid_replace,
-                "--explain": args.explain,
-                "--ignore-no-match": args.ignore_no_match,
-                "--ignore-empty": args.ignore_empty
+                "Args": {
+                    "--input": args.input_path,
+                    "--regex-file": args.regex_path,
+                    "--select-regex": args.regex_line,
+                    "--stats-file": args.stats_path,
+                    "--gzip-output": args.is_gzip_output,
+                    "--no-replace": args.avoid_replace,
+                    "--explain": args.explain,
+                    "--ignore-no-match": args.ignore_no_match,
+                    "--ignore-empty": args.ignore_empty
+                }
             },
             "Taxons with at least 1 duplicate": duplicate_seq_map.len(),
             "Duplicate counts per taxon": duplicate_seq_map
