@@ -20,9 +20,9 @@ struct Cli {
     #[arg(short = 'r', long = "regex-file")]
     regex_path: std::path::PathBuf,
     /// Line number to select in the regex file, starts at 1
-    #[arg(short = 'l', long = "select-regex")]
+    #[arg(short = 'l', long = "select-line")]
     regex_line: usize,
-    /// Optional output stats/log json file with a couple of metrics
+    /// Optional output stats/log json file with a bunch of metrics
     #[arg(short = 's', long = "stats-file")]
     stats_path: Option<std::path::PathBuf>,
     /// Flag to compress output to gzip
@@ -271,7 +271,7 @@ fn main() {
                 "Args": {
                     "--input": args.input_path,
                     "--regex-file": args.regex_path,
-                    "--select-regex": args.regex_line,
+                    "--select-line": args.regex_line,
                     "--stats-file": args.stats_path,
                     "--gzip-output": args.is_gzip_output,
                     "--no-replace": args.avoid_replace,
