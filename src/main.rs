@@ -38,7 +38,7 @@ struct Cli {
     #[arg(short = 'y', long = "ignore-no-match")]
     ignore_no_match: bool,
     /// Flag to ignore and discard records with empty sequence
-    #[arg(short = 'x', long = "ignore-empty")]
+    #[arg(short = 'u', long = "ignore-empty")]
     ignore_empty: bool,
     /// Flag to only use the first sequence for each taxon
     #[arg(short = 'f', long = "first-seq-only")]
@@ -47,7 +47,7 @@ struct Cli {
     #[arg(short = 'c', long = "include-string-file")]
     include_string_file: Option<std::path::PathBuf>,
     /// String list exclude
-    #[arg(short = 'u', long = "exclude-string-file")]
+    #[arg(short = 'x', long = "exclude-string-file")]
     exclude_string_file: Option<std::path::PathBuf>
 }
 
@@ -71,7 +71,7 @@ struct Cli {
 // option to only consider the first sequence for each taxon        --      --      --      --      --  DONE
 // git the damn thing       --      --      --      --      --      --      --      --      --      --  DONE
 // update readme            --      --      --      --      --      --      --      --      --      --  DONE
-// switch u and x args
+// switch u and x args      --      --      --      --      --      --      --      --      --      --  DONE
 
 
 fn main() {
@@ -147,7 +147,7 @@ fn main() {
     let mut empty_seq_count = 0;
     let mut unmatched_record_count = 0; // regex 1 cannot match header
     let mut output_entries_count = 0;
-    let mut excluded_entries = 0; // exclusion due to -c or -u strings
+    let mut excluded_entries = 0; // exclusion due to -c or -x strings
     let start = Instant::now();
     /*let mut sum_duration2 = Duration::default();
     let mut sum_duration3 = Duration::default();

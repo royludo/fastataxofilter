@@ -1,6 +1,6 @@
 [package]
 name = "fastataxofilter"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 authors = ["Ludovic Roy <royludo4@gmail.com>"]
 description = "Remove FASTA records that are duplicated within the same taxon and replace headers"

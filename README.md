@@ -53,7 +53,7 @@ In this case, the 2nd regex is not used and can be omitted from the regex file. 
 
 By default, the program will panic and throw an error if a header cannot match the given regex. `-y, --ignore-no-match` lets you discard sequences whose headers do not match.
 
-`-x, --ignore-empty` will discard empty sequences.
+`-u, --ignore-empty` will discard empty sequences.
 
 ### One sequence per taxon
 
