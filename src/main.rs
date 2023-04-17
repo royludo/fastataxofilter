@@ -42,7 +42,13 @@ struct Cli {
     ignore_empty: bool,
     /// Flag to only use the first sequence for each taxon
     #[arg(short = 'f', long = "first-seq-only")]
-    first_seq_only: bool
+    first_seq_only: bool,
+    /// String list include
+    #[arg(short = 'c', long = "include-string-file")]
+    include_string_file: Option<std::path::PathBuf>,
+    /// String list exclude
+    #[arg(short = 'u', long = "exclude-string-file")]
+    exclude_string_file: Option<std::path::PathBuf>
 }
 
 
@@ -64,7 +70,8 @@ struct Cli {
 // pretty print json        --      --      --      --      --      --      --      --      --      --  DONE
 // option to only consider the first sequence for each taxon        --      --      --      --      --  DONE
 // git the damn thing       --      --      --      --      --      --      --      --      --      --  DONE
-// update readme
+// update readme            --      --      --      --      --      --      --      --      --      --  DONE
+// switch u and x args
 
 
 fn main() {
@@ -74,6 +81,23 @@ fn main() {
         &args.regex_path, 
         args.regex_line, 
         args.avoid_replace);
+
+    // ensure both args are mutually exclusive
+    if args.include_string_file.is_some() && args.exclude_string_file.is_some() {
+        panic!("Use either include or exclude string lists, not both at the same time");
+    }
+
+    // collect either include or exclude strings into same Vec
+    let incl_excl_strings = 
+        if let Some(path) = &args.include_string_file {
+            parse_string_file(&path)
+        }
+        else if let Some(path) = &args.exclude_string_file {
+            parse_string_file(&path)
+        }
+        else {
+            Vec::new()
+        };
 
     // manage input
     let path_string = args.input_path.to_str().expect("Could not parse input file path");
@@ -114,14 +138,16 @@ fn main() {
 
     // collect duplicate stats for each taxons
     let mut duplicate_seq_map: HashMap<String, u32> = HashMap::new();
+    // set of all taxons, used with -f to get only 1 sequence per taxon
     let mut global_taxo_set: HashSet<String> = HashSet::new();
 
     //let mut record = fasta::Record::new();
     let mut total_count = 0;
-    let mut identical_count = 0;
+    let mut identical_count = 0; // filtered due to duplication
     let mut empty_seq_count = 0;
-    let mut unmatched_record_count = 0;
+    let mut unmatched_record_count = 0; // regex 1 cannot match header
     let mut output_entries_count = 0;
+    let mut excluded_entries = 0; // exclusion due to -c or -u strings
     let start = Instant::now();
     /*let mut sum_duration2 = Duration::default();
     let mut sum_duration3 = Duration::default();
@@ -159,6 +185,36 @@ fn main() {
         if sequence.is_empty() {
             empty_seq_count += 1;
             if args.ignore_empty {
+                total_count += 1;
+                continue;
+            }
+        }
+
+        if args.include_string_file.is_some() {
+            let mut include_failed = false;
+            for s in &incl_excl_strings {
+                if header.find(s.as_str()).is_none() {
+                    include_failed = true;
+                    break;
+                };
+            }
+
+            if include_failed {
+                excluded_entries += 1;
+                total_count += 1;
+                continue;
+            }
+        }
+        else if args.exclude_string_file.is_some() {
+            let mut string_matched_count = 0;
+            for s in &incl_excl_strings {
+                if header.find(s.as_str()).is_some() {
+                    string_matched_count += 1;
+                };
+            }
+
+            if string_matched_count == incl_excl_strings.len() {
+                excluded_entries += 1;
                 total_count += 1;
                 continue;
             }
@@ -262,6 +318,7 @@ fn main() {
             "Duplicated entries": identical_count,
             "Empty sequence": empty_seq_count,
             "Unmatched sequence": unmatched_record_count,
+            "Excluded sequence": excluded_entries,
             "Output entries": output_entries_count,
             "Total entries": total_count,
             "Time": format!("{:?}", duration),
@@ -355,6 +412,15 @@ If you need to use tabs in a regex, use '\\t'.", line, expected_entries_per_line
     else {
         panic!("Nothing parsed, regex file seems to be empty, or -l/--regex-line argument is invalid or points to a comment or empty line");
     }
+}
+
+fn parse_string_file(path: &PathBuf) -> Vec<String> {
+    let data = fs::read_to_string(path)
+        .expect(format!("Error while opening string file {:?}", path).as_str());
+
+    let result: Vec<String> = data.split("\n").filter(|s| !s.is_empty()).map(str::to_string).collect();
+    //eprintln!("{:?}", result);
+    return result;
 }
 
 /// print explanations of the regex on stderr, with nice formatting
